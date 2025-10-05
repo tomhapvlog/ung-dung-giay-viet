@@ -160,6 +160,7 @@ const App: React.FC = () => {
             onImageTypeChange={setImageType}
             onShowCollection={() => navigateTo('collection')}
             collectionCount={collectionImages.length}
+            isLoading={isLoading}
           />;
       case 'editor':
         return <EditorScreen
