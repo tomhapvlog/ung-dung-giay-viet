@@ -3,7 +3,7 @@ import ImageUpload from './ImageUpload';
 import CameraView from './CameraView';
 import { isShoeImage } from '../services/geminiService';
 import type { ImageQuality, ModelAction, ImageType } from '../App';
-import { WandIcon } from './icons';
+import { WandIcon, GalleryIcon } from './icons';
 
 interface HomeScreenProps {
   onCharacterImageSelect: (file: File | null) => void;
@@ -15,6 +15,8 @@ interface HomeScreenProps {
   onModelActionChange: (action: ModelAction) => void;
   imageType: ImageType;
   onImageTypeChange: (type: ImageType) => void;
+  onShowCollection: () => void;
+  collectionCount: number;
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -27,6 +29,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   onModelActionChange,
   imageType,
   onImageTypeChange,
+  onShowCollection,
+  collectionCount,
 }) => {
   const [description, setDescription] = useState('');
   const [quality, setQuality] = useState<ImageQuality>('standard');
@@ -90,7 +94,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
 
   return (
     <>
-      <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-sm flex-shrink-0">
+      <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-sm flex-shrink-0 relative">
+        <button 
+          onClick={onShowCollection}
+          className="absolute top-4 right-4 flex items-center gap-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg font-semibold transition-colors z-10"
+          aria-label={`Mở bộ sưu tập với ${collectionCount} ảnh`}
+        >
+            <GalleryIcon className="w-5 h-5" />
+            <span>Bộ sưu tập ({collectionCount})</span>
+        </button>
+
         <div className="text-center mb-6">
             <h1 className="text-3xl font-extrabold text-blue-600 tracking-tight">THÙY DƯƠNG</h1>
             <h2 className="text-xl font-semibold text-gray-800">Nâng niu bàn chân Việt</h2>
