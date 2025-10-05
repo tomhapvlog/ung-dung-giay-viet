@@ -17,6 +17,7 @@ interface HomeScreenProps {
   onImageTypeChange: (type: ImageType) => void;
   onShowCollection: () => void;
   collectionCount: number;
+  isLoading: boolean;
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -31,6 +32,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   onImageTypeChange,
   onShowCollection,
   collectionCount,
+  isLoading,
 }) => {
   const [description, setDescription] = useState('');
   const [quality, setQuality] = useState<ImageQuality>('standard');
@@ -88,8 +90,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const canGenerate = 
-    (imageType === 'model' && characterImage && shoeImage && !isVerifyingShoe && !shoeError) ||
-    (imageType === 'turntable' && shoeImage && !isVerifyingShoe && !shoeError);
+    ((imageType === 'model' && characterImage && shoeImage) || (imageType === 'turntable' && shoeImage)) 
+    && !isVerifyingShoe 
+    && !shoeError;
 
 
   return (
@@ -222,7 +225,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
         <div className="mt-6">
           <button
             onClick={handleGenerateClick}
-            disabled={!canGenerate}
+            disabled={!canGenerate || isLoading}
             className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:bg-blue-300 disabled:cursor-not-allowed"
           >
             <WandIcon className="w-5 h-5" />
