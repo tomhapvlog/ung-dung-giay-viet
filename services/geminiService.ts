@@ -195,12 +195,13 @@ export const generateShoeImage = async (
   }
 
   try {
-    const imagePromises: Promise<string>[] = [];
+    const images: string[] = [];
+    // This loop now waits for each image to be generated before starting the next one.
+    // This prevents the "429 Too Many Requests" error.
     for (let i = 0; i < numberOfImages; i++) {
-        imagePromises.push(generateSingleImage());
+        const image = await generateSingleImage();
+        images.push(image);
     }
-
-    const images = await Promise.all(imagePromises);
     return images;
 
   } catch (error) {
