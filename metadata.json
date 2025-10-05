@@ -1,0 +1,7 @@
+{
+  "name": "TEST  THÙY DƯƠNG - Nâng niu bàn chân Việt v2",
+  "description": "Một ứng dụng tạo riêng cho cô chủ THÙY DƯƠNG để tạo hình ảnh quảng cáo cho giày bằng cách kết hợp ảnh của người mẫu với ảnh sản phẩm sử dụng AI. Người dùng có thể thêm mô tả, chọn tỷ lệ khung hình và tải xuống hình ảnh cuối cùng.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
