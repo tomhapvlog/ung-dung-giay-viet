@@ -1,36 +1,70 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import HomeScreen from './components/HomeScreen';
 import EditorScreen from './components/EditorScreen';
+import CollectionView from './components/CollectionView';
 import { generateShoeImage } from './services/geminiService';
-import { LoadingSpinner, ZaloIcon, VideoIcon, GalleryIcon } from './components/icons';
+import { LoadingSpinner, ZaloIcon, VideoIcon, GalleryIcon, BackArrowIcon } from './components/icons';
 
-export type Screen = 'home' | 'editor';
+export type Screen = 'home' | 'editor' | 'collection';
 export type ImageQuality = 'standard' | 'high';
 export type AspectRatio = '1:1' | '9:16' | '16:9' | '3:4';
 export type ModelAction = 'wear' | 'hold' | 'turntable';
 export type ImageType = 'model' | 'turntable';
 
+const COLLECTION_STORAGE_KEY = 'giay-viet-collection-v2';
 
 const App: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
   const [characterImage, setCharacterImage] = useState<File | null>(null);
   const [shoeImage, setShoeImage] = useState<File | null>(null);
+  
+  // Stores newly generated images for the editor
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  
+  // Stores all saved images persistently
+  const [collectionImages, setCollectionImages] = useState<string[]>([]);
+
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [generationAspectRatio, setGenerationAspectRatio] = useState<AspectRatio>('9:16');
   const [modelAction, setModelAction] = useState<ModelAction>('wear');
   const [imageType, setImageType] = useState<ImageType>('model');
   
-  // Effect to clear error message after a few seconds
+  // Load collection from localStorage on initial render
   useEffect(() => {
-    if (error) {
+    try {
+      const storedImages = localStorage.getItem(COLLECTION_STORAGE_KEY);
+      if (storedImages) {
+        setCollectionImages(JSON.parse(storedImages));
+      }
+    } catch (error) {
+      console.error("Failed to load images from localStorage", error);
+    }
+  }, []);
+
+  // Save collection to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLECTION_STORAGE_KEY, JSON.stringify(collectionImages));
+    } catch (error) {
+      console.error("Failed to save images to localStorage", error);
+    }
+  }, [collectionImages]);
+  
+  // Effect to clear toast message after a few seconds
+  useEffect(() => {
+    if (toast) {
       const timer = setTimeout(() => {
-        setError(null);
-      }, 7000); // Increased time to 7 seconds for better readability
+        setToast(null);
+      }, 5000); 
       return () => clearTimeout(timer);
     }
-  }, [error]);
+  }, [toast]);
+  
+  const showToast = (message: string) => {
+    setToast(message);
+  };
+
 
   const isPromptValid = (prompt: string): boolean => {
     const lowercasedPrompt = prompt.toLowerCase();
@@ -49,49 +83,112 @@ const App: React.FC = () => {
 
   const handleGenerate = useCallback(async (description: string, quality: ImageQuality, numberOfImages: number) => {
     if (!shoeImage) {
-      setError('Vui lòng tải lên ảnh sản phẩm hợp lệ.');
+      showToast('Lỗi: Vui lòng tải lên ảnh sản phẩm hợp lệ.');
       return;
     }
     if (imageType === 'model' && !characterImage) {
-        setError('Vui lòng tải lên ảnh người mẫu.');
+        showToast('Lỗi: Vui lòng tải lên ảnh người mẫu.');
         return;
     }
     
     if (!isPromptValid(description)) {
-        setError('Mô tả chứa sản phẩm không hợp lệ. Vui lòng chỉ tập trung vào giày dép.');
+        showToast('Lỗi: Mô tả chứa sản phẩm không hợp lệ. Vui lòng chỉ tập trung vào giày dép.');
         return;
     }
 
     setIsLoading(true);
-    setError(null);
+    setToast(null);
     setGenerationAspectRatio('9:16');
 
     try {
       const resultImages = await generateShoeImage(characterImage, shoeImage, description, quality, numberOfImages, modelAction, imageType);
       setGeneratedImages(resultImages);
+      // Automatically add new images to the main collection
+      setCollectionImages(prev => [...resultImages, ...prev]);
       setCurrentScreen('editor');
     } catch (err) {
-      // The actual error is logged in geminiService.ts for debugging.
-      // We show a generic, user-friendly message to the user as requested.
       const userMessage = 'Lỗi đường truyền mạng, không thể tạo ảnh. Vui lòng thử lại.';
-      setError(userMessage);
+      showToast(`Lỗi: ${userMessage}`);
     } finally {
       setIsLoading(false);
     }
   }, [characterImage, shoeImage, modelAction, imageType]);
 
-  const handleBackToHome = () => {
-    setCurrentScreen('home');
-    setGeneratedImages([]);
-  };
-  
-  const handleDeleteImages = (indicesToDelete: number[]) => {
-    const remainingImages = generatedImages.filter((_, index) => !indicesToDelete.includes(index));
-    setGeneratedImages(remainingImages);
-    if (remainingImages.length === 0) {
-      handleBackToHome();
+  const navigateTo = (screen: Screen) => {
+    setCurrentScreen(screen);
+    if(screen === 'home') {
+        // Clear temporary images when going home from editor
+        setGeneratedImages([]);
+    }
+  }
+
+  const handleDeleteFromEditor = (indicesToDelete: number[]) => {
+    // These are indices relative to the `generatedImages` array
+    const imagesToDelete = indicesToDelete.map(i => generatedImages[i]);
+    
+    // 1. Remove from the temporary `generatedImages` view
+    const remainingGenerated = generatedImages.filter((_, index) => !indicesToDelete.includes(index));
+    setGeneratedImages(remainingGenerated);
+
+    // 2. Remove the same images from the persistent `collectionImages`
+    setCollectionImages(prev => prev.filter(img => !imagesToDelete.includes(img)));
+
+    showToast(`Đã xóa ${indicesToDelete.length} ảnh khỏi bộ sưu tập.`);
+
+    if (remainingGenerated.length === 0) {
+      navigateTo('home');
     }
   };
+
+  const handleDeleteFromCollection = (indicesToDelete: number[]) => {
+    setCollectionImages(prev => prev.filter((_, index) => !indicesToDelete.includes(index)));
+    showToast(`Đã xóa ${indicesToDelete.length} ảnh khỏi bộ sưu tập.`);
+  };
+
+  const renderScreen = () => {
+    switch(currentScreen) {
+      case 'home':
+        return <HomeScreen
+            onCharacterImageSelect={setCharacterImage}
+            onShoeImageSelect={(file) => setShoeImage(file)}
+            onGenerate={handleGenerate}
+            characterImage={characterImage}
+            shoeImage={shoeImage}
+            modelAction={modelAction}
+            onModelActionChange={setModelAction}
+            imageType={imageType}
+            onImageTypeChange={setImageType}
+            onShowCollection={() => navigateTo('collection')}
+            collectionCount={collectionImages.length}
+          />;
+      case 'editor':
+        return <EditorScreen
+            generatedImages={generatedImages}
+            onBack={() => navigateTo('home')}
+            aspectRatio={generationAspectRatio}
+            onDelete={handleDeleteFromEditor}
+          />;
+      case 'collection':
+         return (
+          <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-2xl flex-shrink-0">
+             <div className="flex items-center mb-4">
+              <button onClick={() => navigateTo('home')} className="p-2 rounded-full hover:bg-gray-100">
+                <BackArrowIcon className="w-6 h-6 text-gray-700" />
+              </button>
+              <h1 className="text-xl font-bold text-gray-800 mx-auto">Bộ sưu tập của bạn</h1>
+              <div className="w-8"></div>
+            </div>
+            <CollectionView
+              images={collectionImages}
+              onDelete={handleDeleteFromCollection}
+              showToast={showToast}
+            />
+          </div>
+        );
+      default:
+        return null;
+    }
+  }
 
   return (
     <div className="bg-gray-100 min-h-screen flex items-center justify-center p-4 font-sans">
@@ -104,31 +201,11 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {currentScreen === 'home' ? (
-          <HomeScreen
-            onCharacterImageSelect={setCharacterImage}
-            onShoeImageSelect={(file) => setShoeImage(file)}
-            onGenerate={handleGenerate}
-            characterImage={characterImage}
-            shoeImage={shoeImage}
-            modelAction={modelAction}
-            onModelActionChange={setModelAction}
-            imageType={imageType}
-            onImageTypeChange={setImageType}
-          />
-        ) : (
-          <EditorScreen
-            generatedImages={generatedImages}
-            onBack={handleBackToHome}
-            aspectRatio={generationAspectRatio}
-            onDelete={handleDeleteImages}
-          />
-        )}
+        {renderScreen()}
       </div>
-       {error && (
+       {toast && (
           <div className="fixed bottom-20 right-5 bg-red-600 text-white py-3 px-5 rounded-lg shadow-lg z-50 animate-fade-in-out max-w-sm">
-            <p className="font-bold">Đã xảy ra lỗi</p>
-            <p className="text-sm">{error}</p>
+            <p>{toast}</p>
           </div>
         )}
       {/* === Tham gia nhóm Zalo Ảnh Xịn === */}
